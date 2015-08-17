@@ -154,6 +154,12 @@ MinSFI("minsfi",
        cl::desc("MinSFI sandboxing"));
 // @LOCALMOD-END
 
+// PNaCl Dynamic Linking
+static cl::opt<bool>
+PNaClPsoRoot(
+    "pnacl-pso-root",
+    cl::desc("PNaCl PSO ROOT"));
+
 static cl::opt<std::string>
 TargetTriple("mtriple", cl::desc("Override target triple for module"));
 
@@ -450,6 +456,10 @@ int main(int argc, char **argv) {
   initializeNoExitRuntimePass(Registry);
   // Emscripten passes end.
   // @LOCALMOD-END
+  
+  // PNaCl Dynamic Linking
+  initializePNaClPsoRootPass(Registry);
+
 
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
@@ -589,6 +599,14 @@ int main(int argc, char **argv) {
 
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
+    // PNaCl Dynamic Linking
+    if (PNaClPsoRoot &&
+        PNaClPsoRoot.getPosition() < PassList.getPosition(i)) {
+      PNaClDynamicLinkingPasses(&ModuleTriple, Passes);
+      PNaClPsoRoot = false;
+      PNaClABISimplifyPostOpt = true;
+    }
+
     // @LOCALMOD-BEGIN
     if (PNaClABISimplifyPreOpt &&
         PNaClABISimplifyPreOpt.getPosition() < PassList.getPosition(i)) {
@@ -627,7 +645,7 @@ int main(int argc, char **argv) {
       AddOptimizationPasses(Passes, *FPasses, 3, 0);
       OptLevelO3 = false;
     }
-
+  
     // @LOCALMOD-BEGIN
     if (PNaClABISimplifyPostOpt &&
         PNaClABISimplifyPostOpt.getPosition() < PassList.getPosition(i)) {
@@ -682,6 +700,10 @@ int main(int argc, char **argv) {
       Passes.add(
           createPrintModulePass(errs(), "", PreserveAssemblyUseListOrder));
   }
+
+  //PNaCl Dynamic Linking
+  if (PNaClPsoRoot)
+    PNaClDynamicLinkingPasses(&ModuleTriple, Passes);
 
   // @LOCALMOD-BEGIN
   if (PNaClABISimplifyPreOpt)

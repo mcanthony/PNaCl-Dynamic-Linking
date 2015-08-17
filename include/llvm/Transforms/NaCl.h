@@ -77,8 +77,15 @@ ModulePass *createLowerEmSetjmpPass();
 ModulePass *createNoExitRuntimePass();
 // Emscripten passes end.
 
+// PNaCl Dynamic Linking
+ModulePass *createPNaClPsoRootPass();
+
+
 void PNaClABISimplifyAddPreOptPasses(Triple *T, PassManagerBase &PM);
 void PNaClABISimplifyAddPostOptPasses(Triple *T, PassManagerBase &PM);
+
+// PNaCl Dynamic Linking
+void PNaClDynamicLinkingPasses(Triple *T, PassManagerBase &PM);
 
 Instruction *PhiSafeInsertPt(Use *U);
 void PhiSafeReplaceUses(Use *U, Value *NewVal);

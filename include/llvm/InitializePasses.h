@@ -359,6 +359,10 @@ void initializeLowerEmSetjmpPass(PassRegistry&);
 void initializeNoExitRuntimePass(PassRegistry&);
 // Emscripten passes end.
 // @LOCALMOD-END
+
+// PNaCl Dynamic Linking
+void initializePNaClPsoRootPass(PassRegistry&); 
+
 }
 
 #endif

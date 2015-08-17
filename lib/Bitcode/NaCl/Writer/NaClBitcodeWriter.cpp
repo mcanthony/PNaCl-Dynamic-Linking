@@ -874,8 +874,13 @@ static void WriteValueSymbolTable(const ValueSymbolTable &VST,
 /// WriteFunction - Emit a function body to the module stream.
 static void WriteFunction(const Function &F, NaClValueEnumerator &VE,
                           NaClBitstreamWriter &Stream) {
+  DEBUG(dbgs() << "-> WriteFunction\n");
+  DEBUG(dbgs() << F.getName());
+
   Stream.EnterSubblock(naclbitc::FUNCTION_BLOCK_ID);
   VE.incorporateFunction(F);
+
+  //VE.dump();
 
   SmallVector<unsigned, 64> Vals;
 
@@ -908,6 +913,7 @@ static void WriteFunction(const Function &F, NaClValueEnumerator &VE,
 
   VE.purgeFunction();
   Stream.ExitBlock();
+  DEBUG(dbgs() << "<- WriteModule\n");
 }
 
 // Emit blockinfo, which defines the standard abbreviations etc.
