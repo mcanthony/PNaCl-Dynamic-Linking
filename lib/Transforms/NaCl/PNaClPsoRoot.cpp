@@ -49,12 +49,24 @@ INITIALIZE_PASS(PNaClPsoRoot, "_pnacl-pso-root",
 
 bool PNaClPsoRoot::runOnModule(Module &M) {
    
-  // Type Definitions
+  // Char Definitions
   PointerType *ptrTy_int8 = PointerType::get(IntegerType::get(M.getContext(), 8), 0);
-  
+ 
+  // Import
+  StructType *struct_Import = M.getTypeByName("struct.Import");
+  if (!struct_Import) {
+    struct_Import = StructType::create(M.getContext(), "struct.Import");
+  }
+  vector<Type*> struct_Import_fields;
+  struct_Import_fields.push_back(ptrTy_int8);
+  struct_Import_fields.push_back(ptrTy_int8);
+  if (struct_Import->isOpaque()) {
+    struct_Import->setBody(struct_Import_fields, false);
+  }
+
   // Import_funcs
   StructType *struct_Import_funcs = M.getTypeByName("struct.Import_funcs");
-  if(!struct_Import_funcs) {
+  if (!struct_Import_funcs) {
     struct_Import_funcs = StructType::create(M.getContext(), "struct.Import_funcs");
   }
 
@@ -62,27 +74,26 @@ bool PNaClPsoRoot::runOnModule(Module &M) {
   
   // Export
   StructType *struct_Export = M.getTypeByName("struct.Export");
-  if(!struct_Export) {
+  if (!struct_Export) {
     struct_Export = StructType::create(M.getContext(), "struct.Export");
   }
   vector<Type*> struct_Export_fields;
   struct_Export_fields.push_back(ptrTy_int8);
   struct_Export_fields.push_back(ptrTy_int8);
-  if(struct_Export->isOpaque()) {
+  if (struct_Export->isOpaque()) {
     struct_Export->setBody(struct_Export_fields, false);
   }
 
-  
   // pso_root
   StructType *struct_Pso_root = M.getTypeByName("struct.Pso_root");
-  if(!struct_Pso_root) {
+  if (!struct_Pso_root) {
     struct_Pso_root = StructType::create(M.getContext(), "struct.Pso_root");
   }
   vector<Type*> struct_Pso_root_fields;
-  PointerType *ptrptrTy_int8 = PointerType::get(ptrTy_int8, 0);
+  PointerType *ptrTy_Import = PointerType::get(struct_Import, 0);
   PointerType *ptrTy_Export = PointerType::get(struct_Export, 0);
 
-  struct_Pso_root_fields.push_back(ptrptrTy_int8);
+  struct_Pso_root_fields.push_back(ptrTy_Import);
   struct_Pso_root_fields.push_back(ptrTy_struct_Import_funcs);
   struct_Pso_root_fields.push_back(ptrTy_Export);
   
@@ -91,41 +102,71 @@ bool PNaClPsoRoot::runOnModule(Module &M) {
   }
   
   // functions
-  int i = 0;
+  int i = 1;
   ConstantInt * const_int32_0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
   vector<Constant*> const_import_elems;
   vector<Constant*> const_export_elems;
   vector<Type*> struct_Import_funcs_fields;
-  for(Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+  GlobalVariable *import_library;
+  bool isInit = false;
+  // Constant *const_import_library;
+  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     if (F->getName().startswith("llvm.") || F->getName().startswith("nacl_")) {
       continue;
     }
     // .str%d internal constant
     char buffer[50];
-    sprintf(buffer, ".str%d", i);
+    sprintf(buffer, ".__str%d", i);
     int str_size = (F->getName()).size();  
     ArrayType *arrTy = ArrayType::get(IntegerType::get(M.getContext(), 8), str_size + 1);
     Constant *const_arr = ConstantDataArray::getString(M.getContext(), F->getName().data(), true);
-    Twine twine(i == 0 ? ".str" : buffer);
+    Twine twine(buffer);
     GlobalVariable *global_str = new GlobalVariable(M,
         /*Type=*/arrTy,
 	/*isConstant=*/true,
-	/*Linkage=*/GlobalValue::InternalLinkage,
+	/*Linkage=*/GlobalValue::PrivateLinkage,
 	/*Initializer=*/0,
 	/*Name=*/twine);
     global_str->setAlignment(1);
     global_str->setInitializer(const_arr);
 
-    vector<Constant*> const_ptr_indices;
-    const_ptr_indices.push_back(const_int32_0);
-    const_ptr_indices.push_back(const_int32_0);
-    Constant *const_ptr = ConstantExpr::getGetElementPtr(arrTy, global_str, const_ptr_indices);
-    if(F->isDeclaration()) {
-      const_import_elems.push_back(const_ptr);
+    vector<Constant*> const_name_indices;
+    const_name_indices.push_back(const_int32_0);
+    const_name_indices.push_back(const_int32_0);
+    Constant *const_name = ConstantExpr::getGetElementPtr(arrTy, global_str, const_name_indices);
+    if (F->isDeclaration()) {
+      ArrayType *arrTy_import_library = ArrayType::get(IntegerType::get(M.getContext(), 8), 1);
+      //GlobalVariable *import_library = M.getNamedGlobal("__.str");
+      if (!isInit) {
+        // initialize empty linking library name
+        import_library = new GlobalVariable(M,
+          /*Type=*/arrTy_import_library, 
+          /*isConstant=*/false, 
+          /*Linkage=*/GlobalValue::PrivateLinkage,
+          /*Initializer=*/0,
+          /*Name=*/".__str");
+        import_library->setAlignment(1);
+        ConstantAggregateZero *const_zero = ConstantAggregateZero::get(arrTy_import_library);
+	import_library->setInitializer(const_zero);
+        isInit = true;
+      }
+      vector<Constant*> const_import_library_indices;
+      const_import_library_indices.push_back(const_int32_0);
+      const_import_library_indices.push_back(const_int32_0);
+      Constant *const_import_library = ConstantExpr::getGetElementPtr(arrTy_import_library, 
+          import_library, 
+	  const_import_library_indices);
+
+      vector<Constant*> const_import_fields;
+      const_import_fields.push_back(const_name);
+      const_import_fields.push_back(const_import_library);
+      Constant *const_import = ConstantStruct::get(struct_Import, const_import_fields);
+      const_import_elems.push_back(const_import);
+
       struct_Import_funcs_fields.push_back(PointerType::get(F->getFunctionType(), 0));  
     } else {
       vector<Constant*> const_export_fields;
-      const_export_fields.push_back(const_ptr);
+      const_export_fields.push_back(const_name);
       Constant *const_func = ConstantExpr::getCast(Instruction::BitCast, F, ptrTy_int8);
       const_export_fields.push_back(const_func);
       Constant *const_export = ConstantStruct::get(struct_Export, const_export_fields);
@@ -134,22 +175,21 @@ bool PNaClPsoRoot::runOnModule(Module &M) {
     i++;
   }
 
-
   // GlobalVariable
-  ArrayType *arrTy_ptr_int8 = ArrayType::get(ptrTy_int8, const_import_elems.size());
-  Constant* const_import_array = ConstantArray::get(arrTy_ptr_int8, const_import_elems);
+  ArrayType *arrTy_Import = ArrayType::get(struct_Import, const_import_elems.size());
+  Constant* const_import_array = ConstantArray::get(arrTy_Import, const_import_elems);
   GlobalVariable *imports = new GlobalVariable(M,
-      /*Type=*/arrTy_ptr_int8,
-      /*isConstant=*/true,
+      /*Type=*/arrTy_Import,
+      /*isConstant=*/false,
       /*Linkage=*/GlobalValue::InternalLinkage,
       /*Initializer=*/0,
-      /*Name=*/"imports");
+      /*Name=*/"__imports");
   imports->setAlignment(16);
   imports->setInitializer(const_import_array);
     
   if (struct_Import_funcs->isOpaque()) {
     struct_Import_funcs->setBody(struct_Import_funcs_fields);
-   }  
+  }  
     
   ConstantAggregateZero *const_struct_import = ConstantAggregateZero::get(struct_Import_funcs);
   GlobalVariable *imports_funcs = new GlobalVariable(M,
@@ -157,7 +197,7 @@ bool PNaClPsoRoot::runOnModule(Module &M) {
       /*isConstant=*/false,
       /*Linkage=*/GlobalValue::InternalLinkage,
       /*Initializer=*/0,
-      /*Name=*/"import_funcs");
+      /*Name=*/"__import_funcs");
   imports_funcs->setAlignment(8);
   imports_funcs->setInitializer(const_struct_import);
   
@@ -168,7 +208,7 @@ bool PNaClPsoRoot::runOnModule(Module &M) {
       /*isConstant=*/true,
       /*Linkage=*/GlobalValue::InternalLinkage,
       /*Initializer=*/0,
-      /*Name=*/"exports");
+      /*Name=*/"__exports");
   exports->setAlignment(16);
   exports->setInitializer(const_export_array);
 
@@ -177,7 +217,7 @@ bool PNaClPsoRoot::runOnModule(Module &M) {
   vector<Constant*> const_ptr_indices_1;
   const_ptr_indices_1.push_back(const_int32_0);
   const_ptr_indices_1.push_back(const_int32_0);
-  Constant *const_ptr_1 = ConstantExpr::getGetElementPtr(arrTy_ptr_int8, imports, const_ptr_indices_1);
+  Constant *const_ptr_1 = ConstantExpr::getGetElementPtr(arrTy_Import, imports, const_ptr_indices_1);
   struct_pso_root_fields.push_back(const_ptr_1);
   struct_pso_root_fields.push_back(imports_funcs);
 
