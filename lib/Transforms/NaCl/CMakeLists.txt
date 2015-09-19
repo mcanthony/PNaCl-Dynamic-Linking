@@ -29,6 +29,8 @@ add_llvm_library(LLVMNaClTransforms
   NormalizeAlignment.cpp
   PNaClABISimplify.cpp
   PNaClSjLjEH.cpp
+  PNaClDynamicLinking.cpp
+  PNaClPsoRoot.cpp
   PromoteI1Ops.cpp
   PromoteIntegers.cpp
   RemoveAsmMemory.cpp

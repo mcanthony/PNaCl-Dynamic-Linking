@@ -1506,6 +1506,7 @@ bool ModuleLinker::run() {
 
   // Loop over all of the linked values to compute type mappings.
   computeTypeMapping();
+  TypeMap.dump();
 
   ComdatsChosen.clear();
   for (const auto &SMEC : SrcM->getComdatSymbolTable()) {
