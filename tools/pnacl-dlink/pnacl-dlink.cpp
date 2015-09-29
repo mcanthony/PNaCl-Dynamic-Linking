@@ -135,6 +135,8 @@ static void diagnosticHandler(const DiagnosticInfo &DI) {
     errs() << '\n';
 }
 
+#define DEBUG
+
 int main(int argc, char **argv) {
   // Print a stack trace if we signal out.
   sys::PrintStackTraceOnErrorSignal();
@@ -144,8 +146,9 @@ int main(int argc, char **argv) {
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
   cl::ParseCommandLineOptions(argc, argv, "pnacl dlink\n");
 
-  auto Composite = make_unique<Module>("pnacl-dlink", Context);
-  DLinker dlinker(diagnosticHandler);
+  // auto Composite = make_unique<Module>("pnacl-dlink", Context);
+  auto Composite = loadFile(argv[0], InputFilenames[0], Context);
+  DLinker dlinker(Composite.get(), Context, diagnosticHandler);
 
   for (unsigned i = 0; i < InputFilenames.size(); ++i) {
     std::unique_ptr<Module> M = loadFile(argv[0], InputFilenames[i], Context);
@@ -161,20 +164,6 @@ int main(int argc, char **argv) {
     }
 
     if (Verbose) errs() << "Linking in '" << InputFilenames[i] << "'\n";
-
-    // for (Module::iterator F = M.get()->begin(), E = M.get()->end(); F != E; F++) {
-        // if(F->isDeclaration()) {
-            // errs() << "isDeclaration\n";
-            // errs() << F->getName().data();
-            // errs() << "\n";
-        // }
-    // }
-
-    // errs() << "Global\n";
-    // for (Module::global_iterator F = M.get()->global_begin(), E = M.get()->global_end(); F!=E; F++) {
-        // if(strcmp(F->getName().data(),"__pnacl_pso_root") == 0) {
-        // }
-    // }
 
     if (dlinker.linkPsoRoot(M.get()))
         return 1;
@@ -202,6 +191,7 @@ int main(int argc, char **argv) {
 
   // Declare success.
   Out.keep();
+    
 
   return 0;
 }
